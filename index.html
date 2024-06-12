@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sheets API Quickstart</title>
+  <meta charset="utf-8" />
+</head>
+<body>
+  <p>Sheets API Quickstart</p>
+  <pre id="content" style="white-space: pre-wrap;"></pre>
+
+  <!-- Add a form to capture data -->
+  <form id="dataForm">
+    <label for="name">First Name:</label>
+    <input type="text" id="name" name="name"><br>
+    <label for="last">Last Name:</label>
+    <input type="text" id="last" name="last"><br>
+    <button type="submit">Submit</button>
+  </form>
+
+  <script type="text/javascript">
+    const CLIENT_ID = 'YOUR_CLIENT_ID';
+    const API_KEY = 'AIzaSyBbo5jJYESbx02W5AkbKmrhFU-uWKc4dlg';
+    const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+    // Spreadsheet ID
+    const SPREADSHEET_ID = '1SgXFUubGVdd6JIR_S1e6yYwR_tmqPGmFnvspOw4XL_c';
+
+    function gapiLoaded() {
+      gapi.load('client:auth2', initializeGapiClient);
+    }
+
+    async function initializeGapiClient() {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: [DISCOVERY_DOC],
+        scope: SCOPES,
+      });
+      gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+      updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+    }
+
+    function handleAuthClick(event) {
+      gapi.auth2.getAuthInstance().signIn();
+    }
+
+    function handleSignoutClick(event) {
+      gapi.auth2.getAuthInstance().signOut();
+    }
+
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        listData();
+      } else {
+        document.getElementById('content').innerText = 'Please sign in to access the data.';
+      }
+    }
+
+    async function listData() {
+      let response;
+      try {
+        response = await gapi.client.sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Class Data!A2:B',
+        });
+      } catch (err) {
+        document.getElementById('content').innerText = err.message;
+        return;
+      }
+      const range = response.result;
+      if (!range || !range.values || range.values.length == 0) {
+        document.getElementById('content').innerText = 'No values found.';
+        return;
+      }
+      const output = range.values.reduce(
+          (str, row) => `${str}${row[0]}, ${row[1]}\n`,
+          'First Name, Last Name:\n');
+      document.getElementById('content').innerText = output;
+    }
+
+    async function appendData(firstName, lastName) {
+      try {
+        const response = await gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Class Data!A:B',
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          resource: {
+            values: [
+              [firstName, lastName]
+            ]
+          }
+        });
+        await listData();
+      } catch (err) {
+        document.getElementById('content').innerText = err.message;
+      }
+    }
+
+    document.getElementById('dataForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const firstName = document.getElementById('name').value;
+      const lastName = document.getElementById('last').value;
+      appendData(firstName, lastName);
+    });
+  </script>
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <button id="authorize_button" onclick="handleAuthClick()">Authorize</button>
+  <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>
+</body>
+</html>
